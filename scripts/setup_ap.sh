@@ -16,6 +16,7 @@ version_check () {
 }
 
 setup () {
+	nm_service=
 	rfkill unblock wifi
 
 	wpa_supplicant_pid=$(pidof wpa_supplicant)
@@ -24,9 +25,15 @@ setup () {
 		sudo kill $wpa_supplicant_pid
 	fi
 
-	if test -d /etc/NetworkManager; then
+	# get list of services and look for the network manager that normally runs
+	if sudo ls -1 /etc/rc$(runlevel | cut -d" " -f2).d/S* | grep network-manager; then
 		echo "Stopping NetworkManager..."
 		sudo service network-manager stop
+		nm_service=network-manager
+	elif sudo ls -1 /etc/rc$(runlevel | cut -d" " -f2).d/S* | grep connman; then
+		echo "Stopping ConnMan..."
+		sudo service connman stop
+		nm_service=connman
 	fi
 
 	echo "Configuring AP interface..."
@@ -59,9 +66,9 @@ cleanup () {
 	echo "Stopping DNSMASQ server..."
 	sudo pkill dnsmasq
 
-	if test -d /etc/NetworkManager; then
-		echo "Restarting NetworkManager..."
-		sudo service network-manager restart
+	if [ ! -z "$nm_service" ]; then
+		echo "Restarting network manager..."
+		sudo service $nm_service restart
 	fi
 }
 
